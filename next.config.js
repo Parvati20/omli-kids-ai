@@ -27,6 +27,7 @@ const nextConfig = {
   webpack: (config) => {
     config.experiments = {
       asyncWebAssembly: true,
+      layers: true, // ← ADD THIS
     };
 
     config.resolve.fallback = {
@@ -40,3 +41,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+
