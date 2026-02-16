@@ -216,12 +216,17 @@ export default function SpeechComponent({ onReady, isAuthorized, onLogout }: Spe
 
     if (isSpeaking) {
       if (video.paused) {
+        // Reset to start and play immediately (no delay)
         video.currentTime = 0;
-        video.play().then(() => {
-          isPlayingVideoRef.current = true;
-        }).catch((err) => {
-          console.error("Video play failed:", err);
-        });
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            isPlayingVideoRef.current = true;
+            console.log("Video playing with AI");
+          }).catch((err) => {
+            console.error("Video play failed:", err);
+          });
+        }
       }
     } else {
       if (!video.paused) {
@@ -235,13 +240,18 @@ export default function SpeechComponent({ onReady, isAuthorized, onLogout }: Spe
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.preload = "auto";
-    try {
-      video.load();
-    } catch (error) {
-      console.warn("Video preload skipped:", error);
-    }
     
+    // Preload entire video for instant playback
+    video.preload = "auto";
+    video.load();
+    
+    // Wait for video to be ready
+    const handleCanPlay = () => {
+      console.log("✅ Video ready to play instantly");
+    };
+    
+    video.addEventListener("canplay", handleCanPlay);
+    return () => video.removeEventListener("canplay", handleCanPlay);
   }, []);
   const speak = async (text: string) => {
     if (!resolvedAuthorized) return;
@@ -261,22 +271,25 @@ export default function SpeechComponent({ onReady, isAuthorized, onLogout }: Spe
       
       if (!textForSpeech) return; // Skip if nothing to speak
       
-      // Start speaking state immediately for instant video sync
-      beginSpeaking();
-      
+      // Synthesize FIRST - this is the bottleneck
       const result = await ttsRef.current.synthesize(textForSpeech);
       
       const durationSeconds =
         typeof result.duration === "number"
           ? result.duration
-          : Math.max(2, textForSpeech.split(/\s+/).length * 0.35);
+          : Math.max(0.7, textForSpeech.split(/\s+/).length * 0.25);
       const durationMs = durationSeconds * 1000;
 
+      // NOW - start speaking EXACTLY when audio is about to play (perfect sync)
+      beginSpeaking();
+      
+      // Queue audio to play right now
       sharedAudioPlayer.addAudioIntoQueue(result.audio, result.sampleRate);
 
+      // End speaking right after audio finishes (no extra delay)
       const endTimerId = window.setTimeout(() => {
         endSpeaking();
-      }, durationMs + 100);
+      }, durationMs);
       speechStateTimersRef.current.push(endTimerId);
     } catch (error) {
       console.error("Speech synthesis failed:", error);
@@ -399,11 +412,11 @@ export default function SpeechComponent({ onReady, isAuthorized, onLogout }: Spe
               ...(wordChainSystem ? [{ role: "system", content: wordChainSystem }] : []),
               ...newMessages
             ],
-            temperature: 0.9,
+            temperature: 0.7,
             top_p: 0.9,
-            max_tokens: 80,
-            presence_penalty: 0.2,
-            frequency_penalty: 0.2,
+            max_tokens: 45,
+            presence_penalty: 0.1,
+            frequency_penalty: 0.1,
             stream: true
           })
         });
@@ -468,8 +481,8 @@ export default function SpeechComponent({ onReady, isAuthorized, onLogout }: Spe
         setCurrentResponse(assistantMessage);
         setDisplayedText(assistantMessage);
 
-        // Step 4: Start speech immediately (no waiting for paint)
-        // Speak the whole response at once for fastest start
+        // Step 4: Start speech IMMEDIATELY with NO DELAY
+        // This triggers video to play at same time
         if (assistantMessage.trim().length > 0) {
           enqueueSpeech(assistantMessage.trim());
         }
@@ -767,8 +780,9 @@ export default function SpeechComponent({ onReady, isAuthorized, onLogout }: Spe
                       ref={videoRef}
                       src="/jenney_video.mp4"
                       muted
+                      autoPlay={false}
                       playsInline
-                      preload="metadata"
+                      preload="auto"
                       onLoadedData={() => console.log("✅ Video loaded successfully")}
                       onError={(e) => console.error("❌ Video load error:", e)}
                       style={{ 

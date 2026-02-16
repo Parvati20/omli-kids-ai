@@ -53,9 +53,9 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    let response = await fetchWithTimeout(12000);
+    let response = await fetchWithTimeout(15000);
     if (!response.ok && response.status >= 500) {
-      response = await fetchWithTimeout(12000);
+      response = await fetchWithTimeout(15000);
     }
 
     if (body.stream) {
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return NextResponse.json(
-        { error: 'Upstream timeout', details: 'Request timed out after 12s' },
+        { error: 'Upstream timeout', details: 'Request timed out after 15s' },
         { status: 504 }
       );
     }
