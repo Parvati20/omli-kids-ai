@@ -22,32 +22,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["speech-to-speech"],
-  },
-  webpack: (config) => {
-    config.experiments = {
-      asyncWebAssembly: true,
-      layers: true,
-    };
-
-    config.resolve.fallback = {
-      fs: false,
-      path: false,
-      crypto: false,
-    };
-
-    // Ignore onnxruntime server-side warnings
-    config.ignoreWarnings = [
-      {
-        module: /onnxruntime-web[\\/].*\.js$/,
-        message: /Critical dependency: require function is used/,
-      },
-    ];
-
-    return config;
+    serverComponentsExternalPackages: ["speech-to-speech"], // client-only library
   },
 };
 
 module.exports = nextConfig;
+
 
 
